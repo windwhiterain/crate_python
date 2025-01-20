@@ -1,0 +1,4 @@
+/target
+.venv
+.pdm-python
+__pycache__
