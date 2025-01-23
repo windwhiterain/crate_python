@@ -10,6 +10,7 @@ use cmd_lib::{run_cmd, run_fun};
 
 use build_print::{println, *};
 use pyproject::PyProject;
+use toml::Table;
 
 #[derive(PartialEq)]
 enum NetworkCondition {
@@ -46,44 +47,47 @@ impl Builder {
     }
     fn set_network_condition_bad(&mut self) {
         self.network_condition = NetworkCondition::Bad;
-        warn!("network condition is bad")
+        warn!("assume that network condition is bad")
     }
-    fn update_pdm(&mut self) -> Result<(), ()> {
+    fn update_pdm(&mut self) {
         let pdm = self.pdm_dir();
         if run_fun! {${pdm}}.is_ok() {
             if self.network_condition == NetworkCondition::Bad {
-                return Ok(());
+                return;
             }
-            if run_cmd! {${pdm} self update}.is_ok() {
-                println!("pdm self update");
-                Ok(())
-            } else {
-                self.set_network_condition_bad();
-                Ok(())
-            }
+            match run_cmd! {${pdm} self update} {
+                Ok(_) => {
+                    println!("pdm self update");
+                }
+                Err(e) => {
+                    warn!("{}", e);
+                    self.set_network_condition_bad();
+                }
+            };
         } else {
             if self.network_condition == NetworkCondition::Bad {
-                return Err(());
+                panic!();
             }
-            if run_cmd!{powershell -ExecutionPolicy ByPass -c "irm https://pdm-project.org/install-pdm.py | py -"}.is_ok(){
-                println!("install pdm");
-                Ok(())
-            } else {
-                self.set_network_condition_bad();
-                Err(())
+            match run_cmd! {powershell -ExecutionPolicy ByPass -c "irm https://pdm-project.org/install-pdm.py | py -"}
+            {
+                Ok(_) => {
+                    println!("install pdm");
+                }
+                Err(e) => {
+                    panic!("{}", e);
+                }
             }
         }
     }
-    fn update_python_project(&mut self) -> Result<(), ()> {
+    fn update_python_project(&mut self) {
         let python_project = self.python_project_dir();
         match run_cmd! {
             cd ${python_project};
             pdm update;
         } {
-            Ok(_) => Ok(()),
+            Ok(_) => {}
             Err(e) => {
-                error!("{}", e);
-                Err(())
+                panic!("{}", e);
             }
         }
     }
@@ -105,19 +109,42 @@ pub fn build_bin(libs: &Vec<Config>) {
     let mut pyproject = PyProject::default();
     pyproject.project.requires_python = Some(format!("=={}.{}.*", version.major, version.minor));
     for lib in libs {
-        let name = lib.dir.file_name().unwrap();
-        let python = lib.dir.join("python");
-        if python.exists() {
-            pyproject.project.dependencies.push(format!(
-                "{} @ file:///{}",
-                name.display(),
-                python.display()
-            ));
+        println!("lib.dir:{}", lib.dir.display());
+        let python_dir = lib.dir.join("python");
+        let pyproject_toml_dir = python_dir.join("pyproject.toml");
+        if pyproject_toml_dir.exists() {
+            let lib_pyproject: Table =
+                toml::from_str(&fs::read_to_string(pyproject_toml_dir).unwrap()).unwrap();
+            let name = lib_pyproject
+                .get("project")
+                .unwrap()
+                .as_table()
+                .unwrap()
+                .get("name")
+                .unwrap()
+                .as_str()
+                .unwrap();
+
+            match match option_env!("CRATE_PYTHON_DEV") {
+                Some(crate_python_dev) => crate_python_dev != "0",
+                None => false,
+            } {
+                false => pyproject.project.dependencies.push(format!(
+                    "{} @ file:///{}",
+                    name,
+                    python_dir.display()
+                )),
+                true => pyproject.tool.pdm.dev_dependencies.dev.push(format!(
+                    "-e file:///{}#egg={}",
+                    python_dir.display(),
+                    name
+                )),
+            };
         }
     }
     fs::write(pyproject_toml_dir, toml::to_string(&pyproject).unwrap()).unwrap();
-    device.update_pdm().unwrap();
-    device.update_python_project().unwrap();
+    device.update_pdm();
+    device.update_python_project();
 }
 
 #[macro_export]

@@ -5,4 +5,7 @@ edition = "2024"
 
 [build-dependencies]
 crate_python = { version = "0.1.0", path = "../../crate_python" }
-python_lib = { version = "0.1.0", path = "../python_lib" }
+pylib = { version = "0.1.0", path = "../pylib" }
+
+[dependencies]
+pyo3 = { version = "0.23.4", features = ["auto-initialize"] }

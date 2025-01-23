@@ -17,16 +17,15 @@ impl Default for Project {
         }
     }
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DependencyGroups {
+    pub dev: Vec<String>,
+}
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Pdm {
     pub distribution: bool,
-}
-impl Default for Pdm {
-    fn default() -> Self {
-        Self {
-            distribution: false,
-        }
-    }
+    #[serde(rename = "dev-dependencies")]
+    pub dev_dependencies: DependencyGroups,
 }
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Tool {

@@ -1,7 +1,7 @@
 use crate_python;
-use python_lib;
+use pylib;
 
-crate_python::config_lib! {python_lib}
+crate_python::config_lib! {pylib}
 fn main() {
     crate_python_build_bin();
 }
