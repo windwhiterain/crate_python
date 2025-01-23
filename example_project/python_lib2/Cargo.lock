@@ -65,9 +65,16 @@ dependencies = [
 name = "crate_python"
 version = "0.1.0"
 dependencies = [
+ "crate_python_env",
+ "pyo3",
+]
+
+[[package]]
+name = "crate_python_env"
+version = "0.1.0"
+dependencies = [
  "build-print",
  "cmd_lib",
- "pyo3",
  "pyo3-build-config",
  "serde",
  "toml",
@@ -304,26 +311,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "python_bin"
-version = "0.1.0"
-dependencies = [
- "crate_python",
- "python_lib",
-]
-
-[[package]]
 name = "python_lib"
 version = "0.1.0"
 dependencies = [
  "crate_python",
- "python_lib2",
 ]
 
 [[package]]
 name = "python_lib2"
 version = "0.1.0"
 dependencies = [
- "crate_python",
+ "python_lib",
 ]
 
 [[package]]

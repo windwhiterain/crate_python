@@ -1,7 +1,3 @@
-[package]
-name = "bevy_python"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-cmd_lib = "1.9.5"
+[workspace]
+members = ["crate_python", "example_project/python_bin"]
+resolver = "3"

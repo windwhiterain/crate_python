@@ -1,4 +1,7 @@
-/target
+target/
 .venv
 .pdm-python
 __pycache__
+__pypackages__
+.pdm-python
+*.egg-info/

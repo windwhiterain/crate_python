@@ -307,6 +307,7 @@ dependencies = [
 name = "python_bin"
 version = "0.1.0"
 dependencies = [
+ "build-print",
  "crate_python",
  "python_lib",
 ]

@@ -1,0 +1,8 @@
+[package]
+name = "python_lib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+python_lib2 = { version = "0.1.0", path = "../python_lib2" }
+crate_python = { version = "0.1.0", path = "../../crate_python" }
