@@ -3,6 +3,7 @@
 #![feature(os_str_display)]
 
 pub mod pyproject;
+mod utils;
 
 use std::{env, fs, path::PathBuf};
 
@@ -18,19 +19,25 @@ enum NetworkCondition {
     Bad,
 }
 
-pub struct Builder {
+pub struct Device {
     network_condition: NetworkCondition,
 }
-impl Builder {
-    pub fn new() -> Builder {
-        Builder {
+impl Device {
+    fn new() -> Device {
+        Device {
             network_condition: NetworkCondition::Good,
         }
     }
-    pub fn is_dev(&mut self) -> bool {
+    fn is_dev(&mut self) -> bool {
         match option_env!("CRATE_PYTHON_DEV") {
             Some(crate_python_dev) => crate_python_dev != "0",
             None => false,
+        }
+    }
+    fn python_project_name(&mut self) -> &str {
+        match self.is_dev() {
+            true => "python_project_dev",
+            false => "python_project",
         }
     }
     fn pdm_dir(&mut self) -> PathBuf {
@@ -49,10 +56,7 @@ impl Builder {
             .into()
     }
     fn python_project_dir(&mut self) -> PathBuf {
-        self.bin_dir().join(match self.is_dev() {
-            true => "python_project_dev",
-            false => "python_project",
-        })
+        self.bin_dir().join(self.python_project_name())
     }
     fn set_network_condition_bad(&mut self) {
         self.network_condition = NetworkCondition::Bad;
@@ -61,6 +65,10 @@ impl Builder {
     fn update_pdm(&mut self) {
         let pdm = self.pdm_dir();
         if run_fun! {${pdm}}.is_ok() {
+            run_cmd! {
+                pdm config install.cache True
+            }
+            .unwrap();
             if self.network_condition == NetworkCondition::Bad {
                 return;
             }
@@ -90,9 +98,18 @@ impl Builder {
     }
     fn update_python_project(&mut self) {
         let python_project = self.python_project_dir();
-        match run_cmd! {
-            cd ${python_project};
-            pdm update;
+        match if self.is_dev() {
+            run_cmd! {
+                cd ${python_project};
+                pdm update;
+            }
+        } else {
+            run_cmd! {
+                cd ${python_project};
+                pdm config install.cache False;
+                pdm update;
+                pdm config install.cache True;
+            }
         } {
             Ok(_) => {}
             Err(e) => {
@@ -110,7 +127,7 @@ pub struct Config {
 pub fn build_bin(libs: &Vec<Config>) {
     println!("cargo::rerun-if-env-changed=CRATE_PYTHON_DEV");
 
-    let mut device = Builder::new();
+    let mut device = Device::new();
     let pyo3_config = pyo3_build_config::get();
     let version = pyo3_config.version;
     let python_exe_path: PathBuf = pyo3_config.executable.as_ref().unwrap().into();
@@ -121,15 +138,25 @@ pub fn build_bin(libs: &Vec<Config>) {
     let pdm_lock_path = python_project_dir.join("pdm.lock");
     let _ = fs::create_dir(&python_project_dir);
     let _ = fs::remove_file(pdm_lock_path);
-    fs::copy(
-        python_exe_dir.join(&python_dll_name),
-        device.bin_dir().join(&python_dll_name),
-    )
-    .unwrap();
+    if !device.is_dev() {
+        build_print::println!(
+            "{},{}",
+            python_exe_dir.join(&python_dll_name).display(),
+            device.bin_dir().join(&python_dll_name).display()
+        );
+        let venv_dir = python_project_dir.join(".venv");
+        let _ = fs::remove_dir_all(venv_dir);
+        fs::copy(
+            python_exe_dir.join(&python_dll_name),
+            device.bin_dir().join(&python_dll_name),
+        )
+        .unwrap();
+    }
     let mut pyproject = PyProject::default();
     pyproject.project.requires_python = Some(format!("=={}.{}.*", version.major, version.minor));
     for lib in libs {
         let python_dir = lib.dir.join("python");
+        println!("cargo::rerun-if-changed={}", python_dir.display());
         let pyproject_toml_path = python_dir.join("pyproject.toml");
         if pyproject_toml_path.exists() {
             let lib_pyproject: Table =
@@ -161,6 +188,10 @@ pub fn build_bin(libs: &Vec<Config>) {
     fs::write(pyproject_toml_path, toml::to_string(&pyproject).unwrap()).unwrap();
     device.update_pdm();
     device.update_python_project();
+    if !device.is_dev() {
+        let _ = fs::remove_file(device.bin_dir().join("Lib"));
+        utils::copy_dir_all(python_exe_dir.join("Lib"), device.bin_dir().join("Lib")).unwrap();
+    }
 }
 
 #[macro_export]
@@ -183,12 +214,16 @@ macro_rules! config_lib {
 }
 
 pub fn init() {
-    let activate_this_dir = env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("python_project/.venv/Scripts/activate_this.py");
+    let mut deivice = Device::new();
+    let exe_dir: PathBuf = env::current_exe().unwrap().parent().unwrap().into();
+    let activate_this_dir = exe_dir
+        .join(deivice.python_project_name())
+        .join(".venv/Scripts/activate_this.py");
+    let lib_dir = exe_dir.join("Lib");
     Python::with_gil(|py| {
+        let sys = py.import("sys").unwrap();
+        let path = sys.getattr("path").unwrap();
+        path.call_method1("append", (lib_dir,)).unwrap();
         let runpy = py.import("runpy").unwrap();
         runpy
             .call_method1("run_path", (activate_this_dir,))

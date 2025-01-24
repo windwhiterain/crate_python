@@ -241,7 +241,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pybin"
+version = "0.1.0"
+dependencies = [
+ "crate_python",
+ "pylib",
+ "pyo3",
+]
+
+[[package]]
 name = "pylib"
+version = "0.1.0"
+dependencies = [
+ "crate_python",
+ "pylib2",
+]
+
+[[package]]
+name = "pylib2"
 version = "0.1.0"
 dependencies = [
  "crate_python",
@@ -308,15 +325,6 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "python_bin"
-version = "0.1.0"
-dependencies = [
- "crate_python",
- "pylib",
- "pyo3",
 ]
 
 [[package]]

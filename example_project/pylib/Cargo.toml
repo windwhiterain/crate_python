@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 crate_python = { version = "0.1.0", path = "../../crate_python" }
+pylib2 = { version = "0.1.0", path = "../pylib2" }
