@@ -1,4 +1,4 @@
 [env]
 RUST_BACKTRACE = "1"
-CRATE_PYTHON_DEV = "1"
+CRATE_PYTHON_DEV = "0"
 PYO3_PYTHON = "C:/SoftWare/Python/python3.12/python.exe" # path to your python.exe
