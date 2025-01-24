@@ -19,6 +19,7 @@ The key point is that these software lack a python package manager. So this proj
 - based on [pyo3](https://github.com/PyO3/pyo3) and [pdm](https://github.com/pdm-project/pdm), a python is required to run pdm and another one to embed by pyo3.
 - internet access to download pdm if you don't have one, and download python package.
 ## Add this crate
+`cargo add --git https://github.com/windwhiterain/crate_python.git crate_python`
 ## Use this crate
 [example project](example_project)
 ### Config a *python lib crate*
