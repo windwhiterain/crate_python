@@ -8,4 +8,5 @@ crate_python = { version = "0.1.0", path = "../../crate_python" }
 pylib = { version = "0.1.0", path = "../pylib" }
 
 [dependencies]
+crate_python = { version = "0.1.0", path = "../../crate_python" }
 pyo3 = { version = "0.23.4", features = ["auto-initialize"] }

@@ -8,7 +8,7 @@ use std::{env, fs, path::PathBuf};
 
 use cmd_lib::{run_cmd, run_fun};
 
-use build_print::{println, *};
+use pyo3::{Python, types::PyAnyMethods};
 use pyproject::PyProject;
 use toml::Table;
 
@@ -27,6 +27,12 @@ impl Builder {
             network_condition: NetworkCondition::Good,
         }
     }
+    pub fn is_dev(&mut self) -> bool {
+        match option_env!("CRATE_PYTHON_DEV") {
+            Some(crate_python_dev) => crate_python_dev != "0",
+            None => false,
+        }
+    }
     fn pdm_dir(&mut self) -> PathBuf {
         let appdata: PathBuf = env::var("APPDATA").unwrap().into();
         appdata.join("Python/Scripts/pdm.exe")
@@ -43,11 +49,14 @@ impl Builder {
             .into()
     }
     fn python_project_dir(&mut self) -> PathBuf {
-        self.bin_dir().join("python_project")
+        self.bin_dir().join(match self.is_dev() {
+            true => "python_project_dev",
+            false => "python_project",
+        })
     }
     fn set_network_condition_bad(&mut self) {
         self.network_condition = NetworkCondition::Bad;
-        warn!("assume that network condition is bad")
+        build_print::warn!("assume that network condition is bad")
     }
     fn update_pdm(&mut self) {
         let pdm = self.pdm_dir();
@@ -57,10 +66,10 @@ impl Builder {
             }
             match run_cmd! {${pdm} self update} {
                 Ok(_) => {
-                    println!("pdm self update");
+                    build_print::println!("pdm self update");
                 }
                 Err(e) => {
-                    warn!("{}", e);
+                    build_print::warn!("{}", e);
                     self.set_network_condition_bad();
                 }
             };
@@ -99,22 +108,32 @@ pub struct Config {
 }
 
 pub fn build_bin(libs: &Vec<Config>) {
+    println!("cargo::rerun-if-env-changed=CRATE_PYTHON_DEV");
+
     let mut device = Builder::new();
-    let version = pyo3_build_config::get().version;
+    let pyo3_config = pyo3_build_config::get();
+    let version = pyo3_config.version;
+    let python_exe_path: PathBuf = pyo3_config.executable.as_ref().unwrap().into();
+    let python_exe_dir = python_exe_path.parent().unwrap();
+    let python_dll_name = format!("python{}{}.dll", &version.major, &version.minor);
     let python_project_dir = device.python_project_dir();
-    let pyproject_toml_dir = python_project_dir.join("pyproject.toml");
-    let pdm_lock_dir = python_project_dir.join("pdm.lock");
-    let _ = fs::create_dir(python_project_dir);
-    let _ = fs::remove_file(pdm_lock_dir);
+    let pyproject_toml_path = python_project_dir.join("pyproject.toml");
+    let pdm_lock_path = python_project_dir.join("pdm.lock");
+    let _ = fs::create_dir(&python_project_dir);
+    let _ = fs::remove_file(pdm_lock_path);
+    fs::copy(
+        python_exe_dir.join(&python_dll_name),
+        device.bin_dir().join(&python_dll_name),
+    )
+    .unwrap();
     let mut pyproject = PyProject::default();
     pyproject.project.requires_python = Some(format!("=={}.{}.*", version.major, version.minor));
     for lib in libs {
-        println!("lib.dir:{}", lib.dir.display());
         let python_dir = lib.dir.join("python");
-        let pyproject_toml_dir = python_dir.join("pyproject.toml");
-        if pyproject_toml_dir.exists() {
+        let pyproject_toml_path = python_dir.join("pyproject.toml");
+        if pyproject_toml_path.exists() {
             let lib_pyproject: Table =
-                toml::from_str(&fs::read_to_string(pyproject_toml_dir).unwrap()).unwrap();
+                toml::from_str(&fs::read_to_string(pyproject_toml_path).unwrap()).unwrap();
             let name = lib_pyproject
                 .get("project")
                 .unwrap()
@@ -125,10 +144,7 @@ pub fn build_bin(libs: &Vec<Config>) {
                 .as_str()
                 .unwrap();
 
-            match match option_env!("CRATE_PYTHON_DEV") {
-                Some(crate_python_dev) => crate_python_dev != "0",
-                None => false,
-            } {
+            match device.is_dev() {
                 false => pyproject.project.dependencies.push(format!(
                     "{} @ file:///{}",
                     name,
@@ -142,7 +158,7 @@ pub fn build_bin(libs: &Vec<Config>) {
             };
         }
     }
-    fs::write(pyproject_toml_dir, toml::to_string(&pyproject).unwrap()).unwrap();
+    fs::write(pyproject_toml_path, toml::to_string(&pyproject).unwrap()).unwrap();
     device.update_pdm();
     device.update_python_project();
 }
@@ -164,4 +180,18 @@ macro_rules! config_lib {
             crate_python::build_bin(&crate_python_configs());
         }
     };
+}
+
+pub fn init() {
+    let activate_this_dir = env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("python_project/.venv/Scripts/activate_this.py");
+    Python::with_gil(|py| {
+        let runpy = py.import("runpy").unwrap();
+        runpy
+            .call_method1("run_path", (activate_this_dir,))
+            .unwrap();
+    });
 }

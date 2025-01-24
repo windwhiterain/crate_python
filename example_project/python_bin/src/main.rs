@@ -1,26 +1,17 @@
-use std::{
-    env,
-    ffi::{CStr, CString},
-    fs,
-    str::FromStr,
-};
-
-use pyo3::{
-    PyResult, Python,
-    types::{PyAnyMethods, PyModule},
-};
+use crate_python;
+use pyo3::{Py, PyAny, Python, types::PyAnyMethods};
 fn main() {
-    println!("{}", env::current_exe().unwrap().display());
-    let activate_this_dir = env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("python_project/.venv/Scripts/activate_this.py");
+    crate_python::init();
+    let mut a: Option<Py<PyAny>> = None;
     Python::with_gil(|py| {
-        let runpy = py.import("runpy").unwrap();
-        runpy
-            .call_method1("run_path", (activate_this_dir,))
-            .unwrap();
         let pylib = py.import("pylib").unwrap();
+        let a_type = pylib.getattr("A").unwrap();
+        let a_instance = a_type.call0().unwrap();
+        a = Some(a_instance.unbind());
+    });
+    Python::with_gil(|py| {
+        let binding = a.unwrap();
+        let a_instance = binding.bind(py);
+        a_instance.call_method0("a").unwrap();
     });
 }
