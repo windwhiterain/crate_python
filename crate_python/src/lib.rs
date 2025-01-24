@@ -139,6 +139,13 @@ pub fn build_bin(libs: &Vec<Config>) {
     let _ = fs::create_dir(&python_project_dir);
     let _ = fs::remove_file(pdm_lock_path);
     if !device.is_dev() {
+        build_print::println!(
+            "{},{}",
+            python_exe_dir.join(&python_dll_name).display(),
+            device.bin_dir().join(&python_dll_name).display()
+        );
+        let venv_dir = python_project_dir.join(".venv");
+        let _ = fs::remove_dir_all(venv_dir);
         fs::copy(
             python_exe_dir.join(&python_dll_name),
             device.bin_dir().join(&python_dll_name),
