@@ -35,7 +35,7 @@ The key point is that these software lack a python package manager. So this proj
 - add `PYO3_PYTHON = <path to your python.exe>`, where pyo3 will find the python executable to embed.
 - add `CRATE_PYTHON_DEV = "0" | "1"`. when this is set to `"1"` we perform faster build but can not distribute, otherwise slow but ready to distribute.
 ### Build
-- directly `cargo run` with `CRATE_PYTHON_DEV` set to `"1"`
+- `cargo run` with `CRATE_PYTHON_DEV` set to `"1"` to development.
 - `cargo build --release` with  `CRATE_PYTHON_DEV` set to `"0"` to distribute.
   - at `target/release`, besides the executable, you can found:
     - `python<X><Y>.dll`, `X`, `Y` are the python major and minner version.
