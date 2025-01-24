@@ -46,3 +46,5 @@ The key point is that these software lack a python package manager. So this proj
 ### Access Python in Rust
 - see [pyo3: call python from rust](https://pyo3.rs/v0.15.1/python_from_rust)
 - every *python crate*'s python project can be import.
+### Note
+- be cautious when activate generated virtual environmnet, they might be removed so that pdm might find a broken python create virtual environment. 

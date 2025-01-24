@@ -66,7 +66,7 @@ impl Device {
         let pdm = self.pdm_dir();
         if run_fun! {${pdm}}.is_ok() {
             run_cmd! {
-                pdm config install.cache True
+                ${pdm} config install.cache True
             }
             .unwrap();
             if self.network_condition == NetworkCondition::Bad {
@@ -74,7 +74,7 @@ impl Device {
             }
             match run_cmd! {${pdm} self update} {
                 Ok(_) => {
-                    build_print::println!("pdm self update");
+                    build_print::info!("pdm self update");
                 }
                 Err(e) => {
                     build_print::warn!("{}", e);
@@ -88,7 +88,7 @@ impl Device {
             match run_cmd! {powershell -ExecutionPolicy ByPass -c "irm https://pdm-project.org/install-pdm.py | py -"}
             {
                 Ok(_) => {
-                    println!("install pdm");
+                    build_print::info!("install pdm");
                 }
                 Err(e) => {
                     panic!("{}", e);
@@ -98,16 +98,17 @@ impl Device {
     }
     fn update_python_project(&mut self) {
         let python_project = self.python_project_dir();
+        let pdm = self.pdm_dir();
         match if self.is_dev() {
-            run_cmd! {
+            run_fun! {
                 cd ${python_project};
-                pdm update;
+                ${pdm} update;
             }
         } else {
-            run_cmd! {
+            run_fun! {
                 cd ${python_project};
                 pdm config install.cache False;
-                pdm update;
+                ${pdm} update --no-editable;
                 pdm config install.cache True;
             }
         } {
@@ -139,18 +140,8 @@ pub fn build_bin(libs: &Vec<Config>) {
     let _ = fs::create_dir(&python_project_dir);
     let _ = fs::remove_file(pdm_lock_path);
     if !device.is_dev() {
-        build_print::println!(
-            "{},{}",
-            python_exe_dir.join(&python_dll_name).display(),
-            device.bin_dir().join(&python_dll_name).display()
-        );
         let venv_dir = python_project_dir.join(".venv");
         let _ = fs::remove_dir_all(venv_dir);
-        fs::copy(
-            python_exe_dir.join(&python_dll_name),
-            device.bin_dir().join(&python_dll_name),
-        )
-        .unwrap();
     }
     let mut pyproject = PyProject::default();
     pyproject.project.requires_python = Some(format!("=={}.{}.*", version.major, version.minor));
@@ -189,7 +180,12 @@ pub fn build_bin(libs: &Vec<Config>) {
     device.update_pdm();
     device.update_python_project();
     if !device.is_dev() {
-        let _ = fs::remove_file(device.bin_dir().join("Lib"));
+        fs::copy(
+            python_exe_dir.join(&python_dll_name),
+            device.bin_dir().join(&python_dll_name),
+        )
+        .unwrap();
+        let _ = fs::remove_dir_all(device.bin_dir().join("Lib"));
         utils::copy_dir_all(python_exe_dir.join("Lib"), device.bin_dir().join("Lib")).unwrap();
     }
 }
