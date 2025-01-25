@@ -120,12 +120,12 @@ impl Device {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Hash, Eq)]
 pub struct Config {
     pub dir: PathBuf,
 }
 
-pub fn build_bin(libs: &Vec<Config>) {
+pub fn build_bin<'a>(libs: &mut impl Iterator<Item = &'a Config>) {
     println!("cargo::rerun-if-env-changed=CRATE_PYTHON_DEV");
 
     let mut device = Device::new();
@@ -163,12 +163,12 @@ pub fn build_bin(libs: &Vec<Config>) {
                 .unwrap();
 
             match device.is_dev() {
-                false => pyproject.project.dependencies.push(format!(
+                false => pyproject.project.dependencies.insert(format!(
                     "{} @ file:///{}",
                     name,
                     python_dir.display()
                 )),
-                true => pyproject.tool.pdm.dev_dependencies.dev.push(format!(
+                true => pyproject.tool.pdm.dev_dependencies.dev.insert(format!(
                     "-e file:///{}#egg={}",
                     python_dir.display(),
                     name
@@ -193,18 +193,18 @@ pub fn build_bin(libs: &Vec<Config>) {
 #[macro_export]
 macro_rules! config_lib {
     ( $( $x:ident ),* ) => {
-        pub fn crate_python_configs()->Vec<crate_python::Config>
+        pub fn crate_python_configs()->std::collections::HashSet<crate_python::Config>
         {
-            let mut ret:Vec<crate_python::Config> = vec![];
+            let mut ret:std::collections::HashSet<crate_python::Config> = Default::default();
             $(
-                ret.append(&mut $x::crate_python_configs());
+                ret.extend(&mut $x::crate_python_configs().into_iter());
             )*
-            ret.push(crate_python::Config{dir:core::env!("CARGO_MANIFEST_DIR").into()});
+            ret.insert(crate_python::Config{dir:core::env!("CARGO_MANIFEST_DIR").into()});
             ret
         }
         fn crate_python_build_bin()
         {
-            crate_python::build_bin(&crate_python_configs());
+            crate_python::build_bin(&mut crate_python_configs().iter());
         }
     };
 }

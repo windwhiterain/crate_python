@@ -1,9 +1,11 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
     pub name: String,
     pub version: String,
-    pub dependencies: Vec<String>,
+    pub dependencies: HashSet<String>,
     #[serde(rename = "requires-python")]
     pub requires_python: Option<String>,
 }
@@ -19,7 +21,7 @@ impl Default for Project {
 }
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DependencyGroups {
-    pub dev: Vec<String>,
+    pub dev: HashSet<String>,
 }
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Pdm {
