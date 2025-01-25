@@ -226,6 +226,7 @@ macro_rules! config {
 }
 
 pub fn init() {
+    pyo3::prepare_freethreaded_python();
     let mut deivice = Device::new();
     let exe_dir: PathBuf = env::current_exe().unwrap().parent().unwrap().into();
     let activate_this_dir = exe_dir
