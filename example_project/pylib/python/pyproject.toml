@@ -3,7 +3,7 @@ name = "pylib"
 version = "0.1.0"
 description = "Default template for PDM package"
 authors = [{ name = "whitingyan", email = "1712428442@qq.com" }]
-dependencies = ["numpy>=2.2.2"]
+dependencies = ["numpy>=2.2.1"]
 requires-python = "==3.12.*"
 readme = "README.md"
 license = { text = "MIT" }

@@ -122,6 +122,7 @@ impl Device {
 
 #[derive(Debug, PartialEq, Hash, Eq)]
 pub struct Config {
+    pub has_python: bool,
     pub dir: PathBuf,
 }
 
@@ -146,10 +147,25 @@ pub fn build_bin<'a>(libs: &mut impl Iterator<Item = &'a Config>) {
     let mut pyproject = PyProject::default();
     pyproject.project.requires_python = Some(format!("=={}.{}.*", version.major, version.minor));
     for lib in libs {
-        let python_dir = lib.dir.join("python");
-        println!("cargo::rerun-if-changed={}", python_dir.display());
-        let pyproject_toml_path = python_dir.join("pyproject.toml");
-        if pyproject_toml_path.exists() {
+        if lib.has_python {
+            let python_dir = lib.dir.join("python");
+            let pyproject_toml_path = python_dir.join("pyproject.toml");
+            if !pyproject_toml_path.exists() {
+                panic!(
+                    "python crate [{}] is configed to has a python project, but pyproject.toml at [{}] is not found",
+                    lib.dir.display(),
+                    pyproject_toml_path.display()
+                );
+            }
+            println!(
+                "cargo::rerun-if-changed={}",
+                if device.is_dev() {
+                    &pyproject_toml_path
+                } else {
+                    &python_dir
+                }
+                .display()
+            );
             let lib_pyproject: Table =
                 toml::from_str(&fs::read_to_string(pyproject_toml_path).unwrap()).unwrap();
             let name = lib_pyproject
@@ -191,15 +207,15 @@ pub fn build_bin<'a>(libs: &mut impl Iterator<Item = &'a Config>) {
 }
 
 #[macro_export]
-macro_rules! config_lib {
-    ( $( $x:ident ),* ) => {
+macro_rules! config {
+    ($has_python:expr, $( $dependency:ident ),* ) => {
         pub fn crate_python_configs()->std::collections::HashSet<crate_python::Config>
         {
             let mut ret:std::collections::HashSet<crate_python::Config> = Default::default();
             $(
-                ret.extend(&mut $x::crate_python_configs().into_iter());
+                ret.extend(&mut $dependency::crate_python_configs().into_iter());
             )*
-            ret.insert(crate_python::Config{dir:core::env!("CARGO_MANIFEST_DIR").into()});
+            ret.insert(crate_python::Config{has_python:$has_python,dir:core::env!("CARGO_MANIFEST_DIR").into()});
             ret
         }
         fn crate_python_build_bin()
